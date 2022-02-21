@@ -210,7 +210,7 @@ interface IIswapV1Pair {
 
     function mint(address to) external returns (uint liquidity);
     function burn(address to) external returns (uint amount0, uint amount1);
-    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
+    function swap(uint preAmountIn, uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
     function skim(address to) external;
     function sync() external;
 
@@ -280,28 +280,28 @@ interface IIswapV1Router01 {
     function swapExactTokensForTokens(
         uint amountIn,
         uint amountOutMin,
-        uint256[] calldata pathAddr,
+        uint[] calldata pArray,
         address to,
         uint deadline
     ) external returns (uint[] memory amounts);
     function swapTokensForExactTokens(
         uint amountOut,
         uint amountInMax,
-        uint256[] calldata pathAddr,
+        uint[] calldata pArray,
         address to,
         uint deadline
     ) external returns (uint[] memory amounts);
-    function swapExactTRXForTokens(uint amountOutMin, uint256[] calldata pathAddr, address to, uint deadline)
+    function swapExactTRXForTokens(uint amountOutMin, uint[] calldata pArray, address to, uint deadline)
         external
         payable
         returns (uint[] memory amounts);
-    function swapTokensForExactTRX(uint amountOut, uint amountInMax, uint256[] calldata pathAddr, address to, uint deadline)
+    function swapTokensForExactTRX(uint amountOut, uint amountInMax, uint[] calldata pArray, address to, uint deadline)
         external
         returns (uint[] memory amounts);
-    function swapExactTokensForTRX(uint amountIn, uint amountOutMin, uint256[] calldata pathAddr, address to, uint deadline)
+    function swapExactTokensForTRX(uint amountIn, uint amountOutMin, uint[] calldata pArray, address to, uint deadline)
         external
         returns (uint[] memory amounts);
-    function swapTRXForExactTokens(uint amountOut, uint256[] calldata pathAddr, address to, uint deadline)
+    function swapTRXForExactTokens(uint amountOut, uint[] calldata pArray, address to, uint deadline)
         external
         payable
         returns (uint[] memory amounts);
@@ -335,20 +335,20 @@ interface IIswapV1Router02 is IIswapV1Router01 {
     function swapExactTokensForTokensSupportingFeeOnTransferTokens(
         uint amountIn,
         uint amountOutMin,
-        uint256[] calldata pathAddr,
+        uint[] calldata pArray,
         address to,
         uint deadline
     ) external;
     function swapExactTRXForTokensSupportingFeeOnTransferTokens(
         uint amountOutMin,
-        uint256[] calldata pathAddr,
+        uint[] calldata pArray,
         address to,
         uint deadline
     ) external payable;
     function swapExactTokensForTRXSupportingFeeOnTransferTokens(
         uint amountIn,
         uint amountOutMin,
-        uint256[] calldata pathAddr,
+        uint[] calldata pArray,
         address to,
         uint deadline
     ) external;
@@ -565,20 +565,20 @@ contract IswapV1Router02 is IIswapV1Router02 {
             (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
             address to = i < path.length - 2 ? IswapV1Library.pairFor(factory, output, path[i + 2]) : _to;
             IIswapV1Pair(IswapV1Library.pairFor(factory, input, output)).swap(
-                amount0Out, amount1Out, to, new bytes(0)
+                amounts[i], amount0Out, amount1Out, to, new bytes(0)
             );
         }
     }
     function swapExactTokensForTokens(
         uint amountIn,
         uint amountOutMin,
-        uint256[] calldata pathAddr,
+        uint[] calldata pArray,
         address to,
         uint deadline
     ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
-	address[] memory path = new address[](pathAddr.length);
-        for(uint i; i < pathAddr.length; i ++) {
-            path[i] = address(pathAddr[i]);
+	   address[] memory path = new address[](pArray.length);
+        for(uint i; i < pArray.length; i ++) {
+            path[i] = address(pArray[i]);
         }
         amounts = IswapV1Library.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'IswapV1Router: INSUFFICIENT_OUTPUT_AMOUNT');
@@ -590,13 +590,13 @@ contract IswapV1Router02 is IIswapV1Router02 {
     function swapTokensForExactTokens(
         uint amountOut,
         uint amountInMax,
-        uint256[] calldata pathAddr,
+        uint[] calldata pArray,
         address to,
         uint deadline
     ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
-	address[] memory path = new address[](pathAddr.length);
-        for(uint i; i < pathAddr.length; i ++) {
-            path[i] = address(pathAddr[i]);
+	   address[] memory path = new address[](pArray.length);
+        for(uint i; i < pArray.length; i ++) {
+            path[i] = address(pArray[i]);
         }
         amounts = IswapV1Library.getAmountsIn(factory, amountOut, path);
         require(amounts[0] <= amountInMax, 'IswapV1Router: EXCESSIVE_INPUT_AMOUNT');
@@ -605,7 +605,7 @@ contract IswapV1Router02 is IIswapV1Router02 {
         );
         _swap(amounts, path, to);
     }
-    function swapExactTRXForTokens(uint amountOutMin, uint256[] calldata pathAddr, address to, uint deadline)
+    function swapExactTRXForTokens(uint amountOutMin, uint[] calldata pArray, address to, uint deadline)
         external
         virtual
         override
@@ -613,9 +613,9 @@ contract IswapV1Router02 is IIswapV1Router02 {
         ensure(deadline)
         returns (uint[] memory amounts)
     {
-	address[] memory path = new address[](pathAddr.length);
-        for(uint i; i < pathAddr.length; i ++) {
-            path[i] = address(pathAddr[i]);
+	   address[] memory path = new address[](pArray.length);
+        for(uint i; i < pArray.length; i ++) {
+            path[i] = address(pArray[i]);
         }
         require(path[0] == WTRX, 'IswapV1Router: INVALID_PATH');
         amounts = IswapV1Library.getAmountsOut(factory, msg.value, path);
@@ -624,16 +624,16 @@ contract IswapV1Router02 is IIswapV1Router02 {
         assert(IWTRX(WTRX).transfer(IswapV1Library.pairFor(factory, path[0], path[1]), amounts[0]));
         _swap(amounts, path, to);
     }
-    function swapTokensForExactTRX(uint amountOut, uint amountInMax, uint256[] calldata pathAddr, address to, uint deadline)
+    function swapTokensForExactTRX(uint amountOut, uint amountInMax, uint[] calldata pArray, address to, uint deadline)
         external
         virtual
         override
         ensure(deadline)
         returns (uint[] memory amounts)
     {
-	address[] memory path = new address[](pathAddr.length);
-        for(uint i; i < pathAddr.length; i ++) {
-            path[i] = address(pathAddr[i]);
+	   address[] memory path = new address[](pArray.length);
+        for(uint i; i < pArray.length; i ++) {
+            path[i] = address(pArray[i]);
         }
         require(path[path.length - 1] == WTRX, 'IswapV1Router: INVALID_PATH');
         amounts = IswapV1Library.getAmountsIn(factory, amountOut, path);
@@ -645,16 +645,16 @@ contract IswapV1Router02 is IIswapV1Router02 {
         IWTRX(WTRX).withdraw(amounts[amounts.length - 1]);
         TransferHelper.safeTransferTRX(to, amounts[amounts.length - 1]);
     }
-    function swapExactTokensForTRX(uint amountIn, uint amountOutMin, uint256[] calldata pathAddr, address to, uint deadline)
+    function swapExactTokensForTRX(uint amountIn, uint amountOutMin, uint[] calldata pArray, address to, uint deadline)
         external
         virtual
         override
         ensure(deadline)
         returns (uint[] memory amounts)
     {
-	address[] memory path = new address[](pathAddr.length);
-        for(uint i; i < pathAddr.length; i ++) {
-            path[i] = address(pathAddr[i]);
+	    address[] memory path = new address[](pArray.length);
+        for(uint i; i < pArray.length; i ++) {
+            path[i] = address(pArray[i]);
         }
         require(path[path.length - 1] == WTRX, 'IswapV1Router: INVALID_PATH');
         amounts = IswapV1Library.getAmountsOut(factory, amountIn, path);
@@ -666,7 +666,7 @@ contract IswapV1Router02 is IIswapV1Router02 {
         IWTRX(WTRX).withdraw(amounts[amounts.length - 1]);
         TransferHelper.safeTransferTRX(to, amounts[amounts.length - 1]);
     }
-    function swapTRXForExactTokens(uint amountOut, uint256[] calldata pathAddr, address to, uint deadline)
+    function swapTRXForExactTokens(uint amountOut, uint[] calldata pArray, address to, uint deadline)
         external
         virtual
         override
@@ -674,9 +674,9 @@ contract IswapV1Router02 is IIswapV1Router02 {
         ensure(deadline)
         returns (uint[] memory amounts)
     {
-	address[] memory path = new address[](pathAddr.length);
-        for(uint i; i < pathAddr.length; i ++) {
-            path[i] = address(pathAddr[i]);
+	    address[] memory path = new address[](pArray.length);
+        for(uint i; i < pArray.length; i ++) {
+            path[i] = address(pArray[i]);
         }
         require(path[0] == WTRX, 'IswapV1Router: INVALID_PATH');
         amounts = IswapV1Library.getAmountsIn(factory, amountOut, path);
@@ -705,19 +705,19 @@ contract IswapV1Router02 is IIswapV1Router02 {
             }
             (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOutput) : (amountOutput, uint(0));
             address to = i < path.length - 2 ? IswapV1Library.pairFor(factory, output, path[i + 2]) : _to;
-            pair.swap(amount0Out, amount1Out, to, new bytes(0));
+            pair.swap(amountInput, amount0Out, amount1Out, to, new bytes(0));
         }
     }
     function swapExactTokensForTokensSupportingFeeOnTransferTokens(
         uint amountIn,
         uint amountOutMin,
-        uint256[] calldata pathAddr,
+        uint[] calldata pArray,
         address to,
         uint deadline
     ) external virtual override ensure(deadline) {
-	address[] memory path = new address[](pathAddr.length);
-        for(uint i; i < pathAddr.length; i ++) {
-            path[i] = address(pathAddr[i]);
+	    address[] memory path = new address[](pArray.length);
+        for(uint i; i < pArray.length; i ++) {
+            path[i] = address(pArray[i]);
         }
         TransferHelper.safeTransferFrom(
             path[0], msg.sender, IswapV1Library.pairFor(factory, path[0], path[1]), amountIn
@@ -731,7 +731,7 @@ contract IswapV1Router02 is IIswapV1Router02 {
     }
     function swapExactTRXForTokensSupportingFeeOnTransferTokens(
         uint amountOutMin,
-        uint256[] calldata pathAddr,
+        uint[] calldata pArray,
         address to,
         uint deadline
     )
@@ -741,9 +741,9 @@ contract IswapV1Router02 is IIswapV1Router02 {
         payable
         ensure(deadline)
     {
-	address[] memory path = new address[](pathAddr.length);
-        for(uint i; i < pathAddr.length; i ++) {
-            path[i] = address(pathAddr[i]);
+	    address[] memory path = new address[](pArray.length);
+        for(uint i; i < pArray.length; i ++) {
+            path[i] = address(pArray[i]);
         }
         require(path[0] == WTRX, 'IswapV1Router: INVALID_PATH');
         uint amountIn = msg.value;
@@ -759,7 +759,7 @@ contract IswapV1Router02 is IIswapV1Router02 {
     function swapExactTokensForTRXSupportingFeeOnTransferTokens(
         uint amountIn,
         uint amountOutMin,
-        uint256[] calldata pathAddr,
+        uint[] calldata pArray,
         address to,
         uint deadline
     )
@@ -768,9 +768,9 @@ contract IswapV1Router02 is IIswapV1Router02 {
         override
         ensure(deadline)
     {
-	address[] memory path = new address[](pathAddr.length);
-        for(uint i; i < pathAddr.length; i ++) {
-            path[i] = address(pathAddr[i]);
+	    address[] memory path = new address[](pArray.length);
+        for(uint i; i < pArray.length; i ++) {
+            path[i] = address(pArray[i]);
         }
         require(path[path.length - 1] == WTRX, 'IswapV1Router: INVALID_PATH');
         TransferHelper.safeTransferFrom(

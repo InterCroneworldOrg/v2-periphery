@@ -1,6 +1,6 @@
 {
   "name": "@intercroneswap/v2-periphery",
-  "version": "0.1.1-trx",
+  "version": "0.1.2-trx",
   "description": "🎚 Peripheral smart contracts for interacting with InterCroneswap V2",
   "engines": {
     "node": ">=10"
